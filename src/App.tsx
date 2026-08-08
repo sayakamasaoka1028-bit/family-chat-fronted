@@ -19,29 +19,7 @@ type ApiMessage = {
   updated_at: string;
 };
 function App() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      text: "おはよう！",
-      sender: "husband",
-      time: "08:00",
-      name: "たいちゃん",
-      icon: taichi,
-    },
-    {
-      text: "おはよう！",
-      sender: "me",
-      time: "08:01",
-      name: "ママ",
-      icon: mama,
-    },
-    {
-      text: "ReactでLINE作ろう！",
-      sender: "husband",
-      time: "08:02",
-      name: "たいちゃん",
-      icon: taichi,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const [text, setText] = useState("");
 
@@ -66,7 +44,6 @@ function App() {
 
     fetchMessages();
   }, []);
-
   const sendMessage = async () => {
     if (text.trim() === "") return;
 
@@ -81,37 +58,23 @@ function App() {
         text: text,
       }),
     });
-    setMessages([
-      ...messages,
-      {
-        text: text,
-        sender: "me",
-        time: new Date().toLocaleTimeString("ja-JP", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        name: "ママ",
-        icon: mama,
-      },
-    ]);
+    const response = await fetch("http://127.0.0.1:8000/api/messages");
+    const data = await response.json();
+
+    const newMessages = data.map((message: ApiMessage) => ({
+      text: message.text,
+      sender: message.sender,
+      name: message.name,
+      time: new Date(message.created_at).toLocaleTimeString("ja-JP", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      icon: message.sender === "me" ? mama : taichi,
+    }));
+
+    setMessages(newMessages);
 
     setText("");
-
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: "終わったよ😊",
-          sender: "husband",
-          time: new Date().toLocaleTimeString("ja-JP", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          name: "たいちゃん",
-          icon: taichi,
-        },
-      ]);
-    }, 2000);
   };
 
   return (
