@@ -125,3 +125,15 @@ body {
   font-size: 13px;
   font-weight: bold;
 }
+.delete-button {
+  margin-top: 4px;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.delete-button:hover {
+  color: #d33;
+}

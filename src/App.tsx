@@ -3,11 +3,14 @@ import "./App.css";
 
 import mama from "./assets/mama.jpg";
 import taichi from "./assets/taichi.jpg";
+import ai from "./assets/ai.jpg";
+import hina from "./assets/hina.jpg";
+import papa from "./assets/papa.jpg";
 
 const MESSAGES_API = "https://family.event-link.jp/api/messages";
 const DEVICES_API = "https://family.event-link.jp/api/devices";
 
-type UserKey = "mama" | "taichi";
+type UserKey = "mama" | "taichi" | "ai" | "hina" | "papa";
 
 type Device = {
   id: number;
@@ -54,7 +57,13 @@ function App() {
 
   // 古いデータも正しく表示するための補正
   const resolveSender = (message: ApiMessage): UserKey | string => {
-    if (message.sender === "mama" || message.sender === "taichi") {
+    if (
+      message.sender === "mama" ||
+      message.sender === "taichi" ||
+      message.sender === "ai" ||
+      message.sender === "hina" ||
+      message.sender === "papa"
+    ) {
       return message.sender;
     }
 
@@ -66,7 +75,26 @@ function App() {
       return "taichi";
     }
 
+    if (message.name === "愛") {
+      return "ai";
+    }
+    if (message.name === "ひな") {
+      return "hina";
+    }
+
+    if (message.name === "パパ") {
+      return "papa";
+    }
+
     return message.sender;
+  };
+
+  const icons: Record<UserKey, string> = {
+    mama,
+    taichi,
+    ai,
+    hina,
+    papa,
   };
 
   const loadMessages = async () => {
@@ -86,7 +114,7 @@ function App() {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          icon: sender === "mama" ? mama : taichi,
+          icon: icons[sender as UserKey] ?? mama,
         };
       });
 
@@ -127,10 +155,7 @@ function App() {
   }, []);
 
   // この端末をママ・たいちゃんのどちらかとしてLaravelへ登録
-  const registerDevice = async (
-    userKey: UserKey,
-    name: string
-  ) => {
+  const registerDevice = async (userKey: UserKey, name: string) => {
     const token = getDeviceToken();
 
     try {
@@ -182,7 +207,30 @@ function App() {
       console.error("送信失敗", error);
     }
   };
+  const deleteMessage = async (messageId: number) => {
+    if (!device) return;
 
+    const ok = window.confirm("このメッセージを削除しますか？");
+
+    if (!ok) return;
+
+    try {
+      const response = await fetch(`${MESSAGES_API}/${messageId}`, {
+        method: "DELETE",
+        headers: {
+          "X-Device-Token": device.device_token,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("メッセージ削除に失敗しました");
+      }
+
+      await loadMessages();
+    } catch (error) {
+      console.error("削除失敗", error);
+    }
+  };
   if (loading) {
     return <div>読み込み中...</div>;
   }
@@ -194,13 +242,16 @@ function App() {
         <h1>💚 ファミリーチャット</h1>
         <h2>この端末は誰が使いますか？</h2>
 
-        <button onClick={() => registerDevice("mama", "ママ")}>
-          👩 ママ
-        </button>
+        <button onClick={() => registerDevice("mama", "ママ")}>👩 ママ</button>
 
         <button onClick={() => registerDevice("taichi", "たいちゃん")}>
           👦 たいちゃん
         </button>
+        <button onClick={() => registerDevice("ai", "愛")}>👩 愛</button>
+
+        <button onClick={() => registerDevice("hina", "ひな")}>👧 ひな</button>
+
+        <button onClick={() => registerDevice("papa", "パパ")}>👨 パパ</button>
       </div>
     );
   }
@@ -220,16 +271,22 @@ function App() {
             }
           >
             <div className="name">
-              <img
-                src={message.icon}
-                alt={message.name}
-                className="avatar"
-              />
+              <img src={message.icon} alt={message.name} className="avatar" />
               <span>{message.name}</span>
             </div>
 
             <div className="bubble">{message.text}</div>
+
             <div className="time">{message.time}</div>
+
+            {message.sender === device.user_key && (
+              <button
+                className="delete-button"
+                onClick={() => deleteMessage(message.id)}
+              >
+                削除
+              </button>
+            )}
           </div>
         ))}
       </main>
