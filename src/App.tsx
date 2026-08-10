@@ -99,6 +99,81 @@ function App() {
     // 通知ON確認音
     await playNotificationSound();
   };
+  const subscribePushNotification = async () => {
+    console.log("Pushボタン押された！");
+    try {
+      const permission = await Notification.requestPermission();
+      console.log("通知許可:", permission);
+      if (permission !== "granted") {
+        alert("通知が許可されませんでした");
+        return;
+      }
+
+      console.log("Service Worker待機中");
+
+      const registration = await navigator.serviceWorker.ready;
+
+      console.log("Service Worker取得成功", registration);
+
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+
+        const base64 = (base64String + padding)
+          .replace(/-/g, "+")
+          .replace(/_/g, "/");
+
+        const rawData = window.atob(base64);
+
+        return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+      };
+
+      const vapidPublicKey = urlBase64ToUint8Array(
+        import.meta.env.VITE_VAPID_PUBLIC_KEY,
+      );
+      console.log("VAPID文字列:", import.meta.env.VITE_VAPID_PUBLIC_KEY);
+      console.log("VAPID長さ:", vapidPublicKey.length);
+      console.log("Push購読開始");
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidPublicKey,
+      });
+
+      console.log("Push購読成功", subscription);
+
+      const subscriptionJson = subscription.toJSON();
+
+      if (!subscriptionJson.endpoint || !subscriptionJson.keys || !device) {
+        throw new Error("Push購読情報を取得できませんでした");
+      }
+
+      const response = await fetch(
+        "https://family.event-link.jp/api/push-subscriptions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            device_token: device.device_token,
+            endpoint: subscriptionJson.endpoint,
+            keys: {
+              p256dh: subscriptionJson.keys.p256dh,
+              auth: subscriptionJson.keys.auth,
+            },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Push購読の登録に失敗しました");
+      }
+
+      alert("🔔 Push通知をONにしました");
+    } catch (error) {
+      console.error("Push通知登録失敗", error);
+    }
+  };
 
   const getDeviceToken = () => {
     let token = localStorage.getItem("deviceToken");
@@ -394,6 +469,9 @@ function App() {
         <button onClick={enableNotificationSound}>
           {soundEnabled ? "🔔 通知ON" : "🔕 通知をONにする"}
         </button>
+
+        <button onClick={subscribePushNotification}>📱 Push通知をON</button>
+
         <button onClick={sendMessage}>送信</button>
       </footer>
     </div>
