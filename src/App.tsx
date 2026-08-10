@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 import mama from "./assets/mama.jpg";
@@ -42,8 +42,64 @@ function App() {
   const [text, setText] = useState("");
   const [device, setDevice] = useState<Device | null>(null);
   const [loading, setLoading] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false);
 
-  // この端末専用のIDを取得。なければ新しく作る
+  const lastMessageIdRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const playNotificationSound = async () => {
+    const audioContext = audioContextRef.current;
+
+    if (!audioContext) {
+      return;
+    }
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    oscillator.frequency.value = 880;
+    oscillator.type = "sine";
+
+    gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioContext.currentTime + 0.25,
+    );
+
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.25);
+  };
+
+  const enableNotificationSound = async () => {
+    if (!audioContextRef.current) {
+      const AudioContextClass =
+        window.AudioContext ||
+        (
+          window as typeof window & {
+            webkitAudioContext: typeof AudioContext;
+          }
+        ).webkitAudioContext;
+
+      audioContextRef.current = new AudioContextClass();
+    }
+
+    if (audioContextRef.current.state === "suspended") {
+      await audioContextRef.current.resume();
+    }
+
+    setSoundEnabled(true);
+
+    // 通知ON確認音
+    await playNotificationSound();
+  };
+
   const getDeviceToken = () => {
     let token = localStorage.getItem("deviceToken");
 
@@ -54,7 +110,6 @@ function App() {
 
     return token;
   };
-
   // 古いデータも正しく表示するための補正
   const resolveSender = (message: ApiMessage): UserKey | string => {
     if (
@@ -117,6 +172,27 @@ function App() {
           icon: icons[sender as UserKey] ?? mama,
         };
       });
+      // 新着メッセージがあるか確認
+      if (data.length > 0) {
+        const newestMessage = data.reduce((latest, message) =>
+          message.id > latest.id ? message : latest,
+        );
+        // 初回読み込みでは音を鳴らさない
+        if (lastMessageIdRef.current === null) {
+          lastMessageIdRef.current = newestMessage.id;
+        } else if (newestMessage.id !== lastMessageIdRef.current) {
+          // 自分以外から届いたメッセージだけ音を鳴らす
+          if (
+            soundEnabled &&
+            device &&
+            resolveSender(newestMessage) !== device.user_key
+          ) {
+            playNotificationSound();
+          }
+
+          lastMessageIdRef.current = newestMessage.id;
+        }
+      }
 
       setMessages(newMessages);
     } catch (error) {
@@ -153,6 +229,18 @@ function App() {
     loadDevice();
     loadMessages();
   }, []);
+
+  useEffect(() => {
+    if (!device) return;
+
+    const interval = setInterval(() => {
+      loadMessages();
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [device, soundEnabled]);
 
   // この端末をママ・たいちゃんのどちらかとしてLaravelへ登録
   const registerDevice = async (userKey: UserKey, name: string) => {
@@ -303,7 +391,9 @@ function App() {
             }
           }}
         />
-
+        <button onClick={enableNotificationSound}>
+          {soundEnabled ? "🔔 通知ON" : "🔕 通知をONにする"}
+        </button>
         <button onClick={sendMessage}>送信</button>
       </footer>
     </div>
