@@ -1,5 +1,7 @@
+import FamilySchedulePage from "./components/FamilySchedulePage";
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
+import MyPage from "./components/MyPage";
 
 import mama from "./assets/mama.jpg";
 import taichi from "./assets/taichi.jpg";
@@ -42,6 +44,9 @@ function App() {
   const [text, setText] = useState("");
   const [device, setDevice] = useState<Device | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState<
+    "chat" | "mypage" | "familySchedule"
+  >("chat");
   const [soundEnabled, setSoundEnabled] = useState(false);
 
   const lastMessageIdRef = useRef<number | null>(null);
@@ -276,14 +281,34 @@ function App() {
   };
 
   // Laravelに「この端末は誰？」と問い合わせる
+  // この端末が誰かを確認する
   const loadDevice = async () => {
     const token = getDeviceToken();
 
+    // まずMac内に保存された端末情報を確認
+    const savedDevice = localStorage.getItem("localDevice");
+
+    if (savedDevice) {
+      const localDevice: Device = JSON.parse(savedDevice);
+      setDevice(localDevice);
+    }
+
+    // オフラインならLaravelには接続せず、そのまま続行
+    if (!navigator.onLine) {
+      console.log("オフライン：ローカル端末情報を使用します");
+      setLoading(false);
+      return;
+    }
+
+    // オンラインならLaravelから最新の端末情報を取得
     try {
       const response = await fetch(`${DEVICES_API}/${token}`);
 
       if (response.status === 404) {
-        setDevice(null);
+        // ローカルにも登録がなければ未登録扱い
+        if (!savedDevice) {
+          setDevice(null);
+        }
         return;
       }
 
@@ -292,9 +317,12 @@ function App() {
       }
 
       const data: Device = await response.json();
+
+      // Laravelから取得した最新情報をMacにも保存
+      localStorage.setItem("localDevice", JSON.stringify(data));
       setDevice(data);
     } catch (error) {
-      console.error("端末情報取得失敗", error);
+      console.error("Laravel端末情報取得失敗。ローカル情報で続行します", error);
     } finally {
       setLoading(false);
     }
@@ -302,25 +330,47 @@ function App() {
 
   useEffect(() => {
     loadDevice();
-    loadMessages();
+
+    if (navigator.onLine) {
+      loadMessages();
+    }
   }, []);
 
   useEffect(() => {
     if (!device) return;
 
     const interval = setInterval(() => {
-      loadMessages();
+      if (navigator.onLine) {
+        loadMessages();
+      }
     }, 3000);
 
     return () => {
       clearInterval(interval);
     };
   }, [device, soundEnabled]);
-
   // この端末をママ・たいちゃんのどちらかとしてLaravelへ登録
   const registerDevice = async (userKey: UserKey, name: string) => {
     const token = getDeviceToken();
 
+    // まずMac内に保存
+    const localDevice: Device = {
+      id: 0,
+      device_token: token,
+      user_key: userKey,
+      name,
+    };
+
+    localStorage.setItem("localDevice", JSON.stringify(localDevice));
+    setDevice(localDevice);
+
+    // オフラインならLaravelには接続しない
+    if (!navigator.onLine) {
+      console.log("オフライン：ローカル端末として登録しました");
+      return;
+    }
+
+    // オンラインならLaravelにも登録
     try {
       const response = await fetch(DEVICES_API, {
         method: "POST",
@@ -339,9 +389,14 @@ function App() {
       }
 
       const data: Device = await response.json();
+
+      localStorage.setItem("localDevice", JSON.stringify(data));
       setDevice(data);
     } catch (error) {
-      console.error("端末登録失敗", error);
+      console.error(
+        "Laravelへの端末登録に失敗。ローカル登録で続行します",
+        error,
+      );
     }
   };
 
@@ -397,7 +452,19 @@ function App() {
   if (loading) {
     return <div>読み込み中...</div>;
   }
+  if (currentPage === "familySchedule") {
+    return <FamilySchedulePage onBack={() => setCurrentPage("mypage")} />;
+  }
 
+  if (currentPage === "mypage" && device) {
+    return (
+      <MyPage
+        userKey={device.user_key}
+        onBackToChat={() => setCurrentPage("chat")}
+        onOpenFamilySchedule={() => setCurrentPage("familySchedule")}
+      />
+    );
+  }
   // Laravelに未登録の端末だけ、この画面を表示
   if (!device) {
     return (
@@ -422,7 +489,7 @@ function App() {
   return (
     <div>
       <h1>💚 ファミリーチャット</h1>
-
+      <button onClick={() => setCurrentPage("mypage")}>👤 マイページ</button>
       <main className="chat-area">
         {messages.map((message) => (
           <div
