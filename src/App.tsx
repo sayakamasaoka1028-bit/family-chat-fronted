@@ -452,8 +452,13 @@ function App() {
   if (loading) {
     return <div>読み込み中...</div>;
   }
-  if (currentPage === "familySchedule") {
-    return <FamilySchedulePage onBack={() => setCurrentPage("mypage")} />;
+  if (currentPage === "familySchedule" && device) {
+    return (
+      <FamilySchedulePage
+        userKey={device.user_key}
+        onBack={() => setCurrentPage("mypage")}
+      />
+    );
   }
 
   if (currentPage === "mypage" && device) {

@@ -55,22 +55,48 @@ function MyPage({ userKey, onBackToChat, onOpenFamilySchedule }: MyPageProps) {
   useEffect(() => {
     localStorage.setItem(`schedules-${userKey}`, JSON.stringify(schedules));
   }, [schedules, userKey]);
-  const addSchedule = () => {
+  const addSchedule = async () => {
     if (!scheduleDate || !scheduleTitle.trim()) {
       return;
     }
 
-    setSchedules([
-      ...schedules,
-      {
-        date: scheduleDate,
-        time: scheduleTime,
-        title: scheduleTitle,
-      },
-    ]);
+    try {
+      const response = await fetch(
+        "https://family.event-link.jp/api/schedules",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_key: userKey,
+            date: scheduleDate,
+            time: scheduleTime || null,
+            title: scheduleTitle,
+          }),
+        },
+      );
 
-    setScheduleTime("");
-    setScheduleTitle("");
+      if (!response.ok) {
+        throw new Error("予定の保存に失敗しました");
+      }
+
+      const newSchedule = await response.json();
+
+      setSchedules([
+        ...schedules,
+        {
+          date: newSchedule.date,
+          time: newSchedule.time ?? "",
+          title: newSchedule.title,
+        },
+      ]);
+
+      setScheduleTime("");
+      setScheduleTitle("");
+    } catch (error) {
+      console.error("予定保存失敗", error);
+    }
   };
 
   const deleteSchedule = (index: number) => {

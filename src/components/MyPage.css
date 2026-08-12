@@ -84,3 +84,92 @@
   color: #aaaaaa;
   font-size: 25px;
 }
+/* =========================
+   👨‍👩‍👧‍👦 家族の予定
+========================= */
+
+.family-schedule-page {
+  min-height: 100vh;
+  padding: 24px 16px 40px;
+  background: #eefaf1;
+  box-sizing: border-box;
+}
+
+.family-schedule-page header {
+  max-width: 700px;
+  margin: 0 auto 24px;
+  text-align: center;
+}
+
+.family-schedule-page header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.family-schedule-list {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* 日付ごとのまとまり */
+.family-schedule-day {
+  margin-bottom: 28px;
+}
+
+.family-schedule-day h2 {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background: #dff5e5;
+  border-radius: 12px;
+  font-size: 18px;
+}
+
+/* 1件の予定 */
+.family-schedule-item {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 10px;
+
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 名前と時間 */
+.family-schedule-person {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.family-schedule-time {
+  font-size: 16px;
+}
+
+/* 予定内容 */
+.family-schedule-title {
+  font-size: 18px;
+  font-weight: 600;
+  padding-left: 4px;
+}
+
+/* 戻るボタン */
+.family-schedule-page > button {
+  display: block;
+  width: 100%;
+  max-width: 700px;
+
+  margin: 24px auto 0;
+  padding: 14px;
+
+  border: none;
+  border-radius: 14px;
+
+  font-size: 16px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
